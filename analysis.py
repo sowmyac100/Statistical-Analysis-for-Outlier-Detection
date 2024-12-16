@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import mahalanobis
 from scipy.stats import chi2
-from sklearn.covariance import MinCovDet
 import matplotlib.pyplot as plt
 
 
