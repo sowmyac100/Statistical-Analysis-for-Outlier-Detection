@@ -1,13 +1,14 @@
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import mahalanobis
+from scipy.stats import chi2
 from sklearn.covariance import MinCovDet
 import matplotlib.pyplot as plt
 
+
 # Ensure `data` contains the following columns: 'Voltage', 'Current', 'Temperature'
 
-import numpy as np
-import pandas as pd
+
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -53,41 +54,48 @@ data = data.sample(frac=1).reset_index(drop=True)
 # Display the dataset
 data.head()
 
-# Extract features
+# Assuming `data` is the dataset with columns ['Voltage', 'Current', 'Temperature']
 features = ['Voltage', 'Current', 'Temperature']
 data_values = data[features].values
 
-# Robust covariance estimation (Minimum Covariance Determinant)
-mcd = MinCovDet(random_state=42).fit(data_values)
-cov_matrix = mcd.covariance_
+# Compute the mean vector and covariance matrix
+mean_vector = np.mean(data_values, axis=0)
+cov_matrix = np.cov(data_values, rowvar=False)
 inv_cov_matrix = np.linalg.inv(cov_matrix)
-mean_values = mcd.location_
 
-# Compute Mahalanobis distances
+# Calculate Mahalanobis Distance for each data point
 mahalanobis_distances = np.array([
-    mahalanobis(row, mean_values, inv_cov_matrix) for row in data_values
+    mahalanobis(row, mean_vector, inv_cov_matrix) for row in data_values
 ])
-data['Mahalanobis Distance'] = mahalanobis_distances
 
-# Determine anomaly threshold
-threshold = np.percentile(mahalanobis_distances, 95)
-data['Anomaly'] = data['Mahalanobis Distance'] > threshold
+# Compute the squared Mahalanobis distance
+squared_mahalanobis_distances = mahalanobis_distances ** 2
 
-# Plot results
-def plot_anomalies(data):
-    plt.figure(figsize=(10, 6))
-    plt.scatter(data.index, data['Mahalanobis Distance'], c=data['Anomaly'], cmap='coolwarm', label='Anomalies')
-    plt.axhline(y=threshold, color='r', linestyle='--', label='Threshold')
-    plt.title('Mahalanobis Distance and Anomaly Detection')
-    plt.xlabel('Index')
-    plt.ylabel('Mahalanobis Distance')
-    plt.legend()
-    plt.show()
+# Define significance level and degrees of freedom
+alpha = 0.01  # 1% significance level
+degrees_of_freedom = len(features)
 
-# Plot anomalies
-plot_anomalies(data)
+# Compute the Chi-Squared critical value
+chi_squared_threshold = chi2.ppf(1 - alpha, degrees_of_freedom)
 
-# Display detected anomalies
-anomalies = data[data['Anomaly']]
-print("Detected Anomalies:")
-print(anomalies)
+# Flag outliers
+data['Squared Mahalanobis Distance'] = squared_mahalanobis_distances
+data['Chi-Squared Threshold'] = chi_squared_threshold
+data['Outlier'] = squared_mahalanobis_distances > chi_squared_threshold
+
+# Display results
+outliers = data[data['Outlier']]
+print("Detected Outliers:")
+print(outliers)
+
+# Visualization (optional)
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+plt.scatter(data.index, squared_mahalanobis_distances, label="Data Points")
+plt.axhline(y=chi_squared_threshold, color='r', linestyle='--', label="Chi-Squared Threshold")
+plt.title("Chi-Squared Outlier Detection")
+plt.xlabel("Index")
+plt.ylabel("Squared Mahalanobis Distance")
+plt.legend()
+plt.show()
